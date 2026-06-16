@@ -1,20 +1,38 @@
-
 import streamlit as st
 import pickle
 import numpy as np
 
+# Load trained model
 model = pickle.load(open("linear_regression.pkl", "rb"))
 
-st.title("Linear Regression Prediction App")
+st.title("California Housing Price Prediction")
 
-n_features = model.n_features_in_
+st.write("Enter the housing details below:")
 
-inputs = []
+MedInc = st.number_input("Median Income", value=3.5)
+HouseAge = st.number_input("House Age", value=25.0)
+AveRooms = st.number_input("Average Rooms", value=5.0)
+AveBedrms = st.number_input("Average Bedrooms", value=1.0)
+Population = st.number_input("Population", value=1000.0)
+AveOccup = st.number_input("Average Occupancy", value=3.0)
+Latitude = st.number_input("Latitude", value=34.0)
+Longitude = st.number_input("Longitude", value=-118.0)
 
-for i in range(n_features):
-    value = st.text_input(f"Feature {i+1}", "0")
-    inputs.append(float(value))
+if st.button("Predict House Value"):
 
-if st.button("Predict"):
-    prediction = model.predict([inputs])
-    st.success(f"Prediction: {prediction[0]}")
+    features = np.array([[
+        MedInc,
+        HouseAge,
+        AveRooms,
+        AveBedrms,
+        Population,
+        AveOccup,
+        Latitude,
+        Longitude
+    ]])
+
+    prediction = model.predict(features)
+
+    st.success(
+        f"Predicted House Value: ${prediction[0] * 100000:,.2f}"
+    )
