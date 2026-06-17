@@ -5,26 +5,25 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-# Regression
 from sklearn.linear_model import LinearRegression
-
-# Classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
 
-# XGBoost
 from xgboost import XGBClassifier, XGBRegressor
 
 from sklearn.metrics import accuracy_score, r2_score
 
-st.set_page_config(page_title="ML Algorithm Comparison App")
+st.set_page_config(page_title="ML Algorithm Comparison Dashboard")
 
 st.title("Machine Learning Algorithm Comparison Dashboard")
 
-uploaded_file = st.file_uploader("Upload CSV Dataset", type=["csv"])
+uploaded_file = st.file_uploader(
+    "Upload CSV Dataset",
+    type=["csv"]
+)
 
 if uploaded_file is not None:
 
@@ -54,19 +53,25 @@ if uploaded_file is not None:
     X = df.drop(columns=[target_column])
     y = df[target_column]
 
-    # Encode categorical columns
-    le_dict = {}
+    # Handle missing values
+    X = X.fillna("Missing")
+    y = y.fillna("Missing")
+
+    # Encode all categorical features
+    feature_encoders = {}
 
     for col in X.columns:
-        if X[col].dtype == "object":
+        if X[col].dtype == "object" or str(X[col].dtype) == "category":
             le = LabelEncoder()
             X[col] = le.fit_transform(X[col].astype(str))
-            le_dict[col] = le
+            feature_encoders[col] = le
 
-    # Encode target if classification
-    if y.dtype == "object":
-        y_le = LabelEncoder()
-        y = y_le.fit_transform(y)
+    # Encode target if categorical
+    target_encoder = None
+
+    if y.dtype == "object" or str(y.dtype) == "category":
+        target_encoder = LabelEncoder()
+        y = target_encoder.fit_transform(y.astype(str))
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
@@ -101,7 +106,7 @@ if uploaded_file is not None:
 
         elif algorithm == "Decision Tree":
 
-            model = DecisionTreeClassifier()
+            model = DecisionTreeClassifier(random_state=42)
             model.fit(X_train, y_train)
 
             y_pred = model.predict(X_test)
@@ -112,7 +117,11 @@ if uploaded_file is not None:
 
         elif algorithm == "Random Forest":
 
-            model = RandomForestClassifier()
+            model = RandomForestClassifier(
+                n_estimators=100,
+                random_state=42
+            )
+
             model.fit(X_train, y_train)
 
             y_pred = model.predict(X_test)
@@ -147,7 +156,11 @@ if uploaded_file is not None:
 
             if len(np.unique(y)) > 10:
 
-                model = XGBRegressor()
+                model = XGBRegressor(
+                    objective="reg:squarederror",
+                    random_state=42
+                )
+
                 model.fit(X_train, y_train)
 
                 y_pred = model.predict(X_test)
@@ -158,7 +171,11 @@ if uploaded_file is not None:
 
             else:
 
-                model = XGBClassifier()
+                model = XGBClassifier(
+                    eval_metric="logloss",
+                    random_state=42
+                )
+
                 model.fit(X_train, y_train)
 
                 y_pred = model.predict(X_test)
@@ -170,23 +187,25 @@ if uploaded_file is not None:
         st.session_state["model"] = model
         st.session_state["features"] = X.columns.tolist()
 
+        st.success("Model Trained Successfully!")
+
     if "model" in st.session_state:
 
         st.subheader("Prediction")
 
-        feature_values = []
+        user_inputs = []
 
-        for col in st.session_state["features"]:
-            val = st.number_input(
-                f"{col}",
+        for feature in st.session_state["features"]:
+            value = st.number_input(
+                f"{feature}",
                 value=0.0
             )
-            feature_values.append(val)
+            user_inputs.append(value)
 
         if st.button("Predict"):
 
             prediction = st.session_state["model"].predict(
-                [feature_values]
+                [user_inputs]
             )
 
             st.success(
