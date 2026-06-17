@@ -5,8 +5,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from sklearn.linear_model import LinearRegression
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
@@ -16,9 +15,9 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from sklearn.metrics import accuracy_score, r2_score
 
-st.set_page_config(page_title="ML Algorithm Comparison Dashboard")
+st.set_page_config(page_title="ML Algorithm Dashboard")
 
-st.title("Machine Learning Algorithm Comparison Dashboard")
+st.title("Machine Learning Algorithm Dashboard")
 
 uploaded_file = st.file_uploader(
     "Upload CSV Dataset",
@@ -50,28 +49,25 @@ if uploaded_file is not None:
         ]
     )
 
+    # Handle missing values
+    df = df.fillna("Missing")
+
+    # Encode all categorical columns
+    encoders = {}
+
+    for col in df.columns:
+        if df[col].dtype == "object":
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col].astype(str))
+            encoders[col] = le
+
     X = df.drop(columns=[target_column])
     y = df[target_column]
 
-    # Handle missing values
-    X = X.fillna("Missing")
-    y = y.fillna("Missing")
-
-    # Encode all categorical features
-    feature_encoders = {}
-
-    for col in X.columns:
-        if X[col].dtype == "object" or str(X[col].dtype) == "category":
-            le = LabelEncoder()
-            X[col] = le.fit_transform(X[col].astype(str))
-            feature_encoders[col] = le
-
-    # Encode target if categorical
-    target_encoder = None
-
-    if y.dtype == "object" or str(y.dtype) == "category":
-        target_encoder = LabelEncoder()
-        y = target_encoder.fit_transform(y.astype(str))
+    # Detect problem type
+    is_classification = (
+        y.nunique() <= 20
+    )
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
@@ -82,132 +78,131 @@ if uploaded_file is not None:
 
     if st.button("Train Model"):
 
+        model = None
+
+        # Regression
         if algorithm == "Linear Regression":
 
+            if is_classification:
+                st.error(
+                    "Linear Regression cannot be used for classification datasets."
+                )
+                st.stop()
+
             model = LinearRegression()
-            model.fit(X_train, y_train)
 
-            y_pred = model.predict(X_test)
-
-            score = r2_score(y_test, y_pred)
-
-            st.success(f"R² Score: {score:.4f}")
-
+        # Classification
         elif algorithm == "Logistic Regression":
 
+            if not is_classification:
+                st.error(
+                    "Logistic Regression is intended for classification datasets."
+                )
+                st.stop()
+
             model = LogisticRegression(max_iter=1000)
-            model.fit(X_train, y_train)
-
-            y_pred = model.predict(X_test)
-
-            score = accuracy_score(y_test, y_pred)
-
-            st.success(f"Accuracy: {score:.4f}")
 
         elif algorithm == "Decision Tree":
 
-            model = DecisionTreeClassifier(random_state=42)
-            model.fit(X_train, y_train)
+            if not is_classification:
+                st.error(
+                    "Decision Tree in this app is configured for classification."
+                )
+                st.stop()
 
-            y_pred = model.predict(X_test)
-
-            score = accuracy_score(y_test, y_pred)
-
-            st.success(f"Accuracy: {score:.4f}")
+            model = DecisionTreeClassifier()
 
         elif algorithm == "Random Forest":
 
-            model = RandomForestClassifier(
-                n_estimators=100,
-                random_state=42
-            )
+            if not is_classification:
+                st.error(
+                    "Random Forest in this app is configured for classification."
+                )
+                st.stop()
 
-            model.fit(X_train, y_train)
-
-            y_pred = model.predict(X_test)
-
-            score = accuracy_score(y_test, y_pred)
-
-            st.success(f"Accuracy: {score:.4f}")
+            model = RandomForestClassifier()
 
         elif algorithm == "SVM":
 
+            if not is_classification:
+                st.error(
+                    "SVM in this app is configured for classification."
+                )
+                st.stop()
+
             model = SVC()
-            model.fit(X_train, y_train)
-
-            y_pred = model.predict(X_test)
-
-            score = accuracy_score(y_test, y_pred)
-
-            st.success(f"Accuracy: {score:.4f}")
 
         elif algorithm == "Naive Bayes":
 
+            if not is_classification:
+                st.error(
+                    "Naive Bayes is for classification datasets."
+                )
+                st.stop()
+
             model = GaussianNB()
-            model.fit(X_train, y_train)
-
-            y_pred = model.predict(X_test)
-
-            score = accuracy_score(y_test, y_pred)
-
-            st.success(f"Accuracy: {score:.4f}")
 
         elif algorithm == "XGBoost":
 
-            if len(np.unique(y)) > 10:
-
-                model = XGBRegressor(
-                    objective="reg:squarederror",
-                    random_state=42
-                )
-
-                model.fit(X_train, y_train)
-
-                y_pred = model.predict(X_test)
-
-                score = r2_score(y_test, y_pred)
-
-                st.success(f"R² Score: {score:.4f}")
-
-            else:
-
+            if is_classification:
                 model = XGBClassifier(
-                    eval_metric="logloss",
-                    random_state=42
+                    eval_metric="logloss"
+                )
+            else:
+                model = XGBRegressor(
+                    objective="reg:squarederror"
                 )
 
-                model.fit(X_train, y_train)
+        model.fit(X_train, y_train)
 
-                y_pred = model.predict(X_test)
+        y_pred = model.predict(X_test)
 
-                score = accuracy_score(y_test, y_pred)
+        if is_classification:
 
-                st.success(f"Accuracy: {score:.4f}")
+            score = accuracy_score(
+                y_test,
+                y_pred
+            )
+
+            st.success(
+                f"Accuracy: {score:.4f}"
+            )
+
+        else:
+
+            score = r2_score(
+                y_test,
+                y_pred
+            )
+
+            st.success(
+                f"R² Score: {score:.4f}"
+            )
 
         st.session_state["model"] = model
         st.session_state["features"] = X.columns.tolist()
-
-        st.success("Model Trained Successfully!")
 
     if "model" in st.session_state:
 
         st.subheader("Prediction")
 
-        user_inputs = []
+        values = []
 
         for feature in st.session_state["features"]:
+
             value = st.number_input(
-                f"{feature}",
+                feature,
                 value=0.0
             )
-            user_inputs.append(value)
+
+            values.append(value)
 
         if st.button("Predict"):
 
-            prediction = st.session_state["model"].predict(
-                [user_inputs]
+            pred = st.session_state["model"].predict(
+                [values]
             )
 
             st.success(
-                f"Prediction: {prediction[0]}"
+                f"Prediction: {pred[0]}"
             )
